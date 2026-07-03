@@ -50,7 +50,7 @@ class UI:
             binary=self.pin_entry_binary,
             options=self.options_getter())
 
-    def get_passphrase(self, prompt='Passphrase:'):
+    def get_passphrase(self, prompt='Passphrase:', on_device=False):
         """Ask the user for passphrase."""
         env_passphrase = os.environ.get("TREZOR_PASSPHRASE")
         if env_passphrase is not None:
@@ -59,7 +59,7 @@ class UI:
         return interact(
             title='{} passphrase'.format(self.device_name),
             prompt=prompt,
-            description=None,
+            description='(keep empty to enter on-device)' if on_device else None,
             binary=self.passphrase_entry_binary,
             options=self.options_getter())
 

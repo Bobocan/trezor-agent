@@ -37,11 +37,16 @@ class Trezor(interface.Device):
                 pin_callback=self.ui.get_pin,
                 code_entry_callback=self.ui.get_pairing_code,
             )
+            # If passphrase is enabled, allow entering it on the host.
+            # If the entered passphrase is empty, enter it on the device (if supported).
+            # Otherwise, open the default wallet with no passphrase.
             passphrase = PassphraseSetting.AUTO
+
             features = client.features
-            on_device = Capability.PassphraseEntry in features.capabilities
-            if features.passphrase_protection and not on_device:
-                passphrase = self.ui.get_passphrase()
+            if features.passphrase_protection:
+                on_device = Capability.PassphraseEntry in features.capabilities
+                if entered := self.ui.get_passphrase(on_device=on_device):
+                    passphrase = entered
 
             session = client.get_session(passphrase=passphrase)
             log.info("%s @ fpr=%s", session, session.get_root_fingerprint().hex())
