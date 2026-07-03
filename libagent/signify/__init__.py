@@ -114,6 +114,5 @@ def main(device_type):
 
     args = parser.parse_args()
     device_type.ui = ui.UI(device_type=device_type, config=vars(args))
-    device_type.ui.cached_passphrase_ack = util.ExpiringCache(seconds=float(60))
 
     return args.func(device_type=device_type, args=args)

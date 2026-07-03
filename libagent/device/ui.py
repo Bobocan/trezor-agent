@@ -8,12 +8,6 @@ import sys
 from .. import util
 from ..gpg import keyring
 
-try:
-    from trezorlib.client import PASSPHRASE_ON_DEVICE
-except ImportError:
-    PASSPHRASE_ON_DEVICE = object()
-
-
 log = logging.getLogger(__name__)
 
 
@@ -31,8 +25,6 @@ class UI:
                                                   default_pinentry)
         self.options_getter = create_default_options_getter()
         self.device_name = device_type.__name__
-        self.cached_passphrase_ack = util.ExpiringCache(
-            seconds=float(config.get('cache_expiry_seconds', 'inf')))
 
     def get_pin(self, _code=None):
         """Ask the user for (scrambled) PIN."""
@@ -58,27 +50,18 @@ class UI:
             binary=self.pin_entry_binary,
             options=self.options_getter())
 
-    def get_passphrase(self, prompt='Passphrase:', available_on_device=False):
+    def get_passphrase(self, prompt='Passphrase:'):
         """Ask the user for passphrase."""
-        passphrase = None
-        if self.cached_passphrase_ack:
-            passphrase = self.cached_passphrase_ack.get()
-        if passphrase is None:
-            env_passphrase = os.environ.get("TREZOR_PASSPHRASE")
-            if env_passphrase is not None:
-                passphrase = env_passphrase
-            elif available_on_device:
-                passphrase = PASSPHRASE_ON_DEVICE
-            else:
-                passphrase = interact(
-                    title='{} passphrase'.format(self.device_name),
-                    prompt=prompt,
-                    description=None,
-                    binary=self.passphrase_entry_binary,
-                    options=self.options_getter())
-        if self.cached_passphrase_ack:
-            self.cached_passphrase_ack.set(passphrase)
-        return passphrase
+        env_passphrase = os.environ.get("TREZOR_PASSPHRASE")
+        if env_passphrase is not None:
+            return env_passphrase
+
+        return interact(
+            title='{} passphrase'.format(self.device_name),
+            prompt=prompt,
+            description=None,
+            binary=self.passphrase_entry_binary,
+            options=self.options_getter())
 
     def button_request(self, _code=None):
         """Called by TrezorClient when device interaction is required."""
