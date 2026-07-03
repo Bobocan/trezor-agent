@@ -5,7 +5,7 @@ import logging
 from trezorlib.btc import get_public_node
 from trezorlib.client import PassphraseSetting, get_default_client
 from trezorlib.exceptions import TrezorFailure
-from trezorlib.messages import IdentityType
+from trezorlib.messages import Capability, IdentityType
 from trezorlib.misc import get_ecdh_session_key, sign_identity
 
 from .. import formats
@@ -37,7 +37,13 @@ class Trezor(interface.Device):
                 pin_callback=self.ui.get_pin,
                 code_entry_callback=self.ui.get_pairing_code,
             )
-            session = client.get_session(passphrase=PassphraseSetting.AUTO)
+            passphrase = PassphraseSetting.AUTO
+            features = client.features
+            on_device = Capability.PassphraseEntry in features.capabilities
+            if features.passphrase_protection and not on_device:
+                passphrase = self.ui.get_passphrase()
+
+            session = client.get_session(passphrase=passphrase)
             log.info("%s @ fpr=%s", session, session.get_root_fingerprint().hex())
             self.__class__._session = session
 
