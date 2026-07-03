@@ -1,4 +1,4 @@
-"""TREZOR-related code (see http://bitcointrezor.com/)."""
+"""TREZOR-related code (see https://trezor.io/)."""
 
 import logging
 
