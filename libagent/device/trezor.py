@@ -37,6 +37,10 @@ class Trezor(interface.Device):
                 pin_callback=self.ui.get_pin,
                 code_entry_callback=self.ui.get_pairing_code,
             )
+            if not client.features.unlocked:
+                # Otherwise, some features are not available.
+                client.ensure_unlocked()
+
             # If passphrase is enabled, allow entering it on the host.
             # If the entered passphrase is empty, enter it on the device (if supported).
             # Otherwise, open the default wallet with no passphrase.
