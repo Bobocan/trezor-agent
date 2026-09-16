@@ -4,6 +4,8 @@ import logging
 
 from .. import util
 from . import client, decode, keyring, protocol
+from trezorlib.transport import TransportException
+from trezorlib.exceptions import Cancelled
 
 log = logging.getLogger(__name__)
 
@@ -259,4 +261,14 @@ class Handler:
                     msg, = e.args
                     keyring.sendline(conn, msg)
                     continue
+                except Cancelled as e:
+                    keyring.sendline(conn, b"ERR 67108963 Action was cancelled")
+                    continue
+                except TransportException as e:
+                    keyring.sendline(conn, b"ERR 67108976 No device found")
+                    continue
+                except Exception as e:
+                    keyring.sendline(conn, b"ERR 67108865 Internal Error")
+                    raise e
+
             keyring.sendline(conn, b'OK')
