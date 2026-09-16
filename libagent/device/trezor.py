@@ -55,6 +55,8 @@ class Trezor(interface.Device):
             session = client.get_session(passphrase=passphrase)
             log.info("%s @ fpr=%s", session, session.get_root_fingerprint().hex())
             self.__class__._session = session
+        else:
+            self.__class__._session.initialize()
 
         return self.__class__._session
 
