@@ -4,12 +4,14 @@ import ctypes
 import io
 import os
 import socket
+import uuid
 
 import win32api
 import win32event
 import win32file
 import win32pipe
 import winerror
+import struct
 
 from . import util
 
@@ -269,17 +271,40 @@ class Server:
         self.pipe = None
         if not isinstance(self.pipe_name, str):
             # GPG simulated socket via localhost socket
-            self.key = os.urandom(16)
+            self.key = str(uuid.uuid4()).upper()
             self.sock = socket.socket()
             self.sock.bind(('127.0.0.1', 0))
             _, port = self.sock.getsockname()
             self.sock.listen(1)
+
+            def compute_msys2_cookie(header_bytes: bytes) -> int:
+                """
+                Replicates MSYS2 / Cygwin's secret cookie hashing function.
+                Computes a 32-bit unsigned integer hash over the magic header string.
+                """
+                cookie = 0
+                for byte in header_bytes:
+                    # Rotate left by 5 bits (in 32-bit space) and XOR with byte
+                    cookie = ((cookie << 5) | (cookie >> 27)) & 0xFFFFFFFF
+                    cookie ^= byte
+                return cookie
+
+            header_bytes = f"!<socket >{port} s {self.key}\0".encode("ascii")
+            self.cookie = compute_msys2_cookie(self.key.encode("ascii"))
+
+            FILE_ATTRIBUTE_NORMAL = 0x80
+            FILE_ATTRIBUTE_SYSTEM = 0x04
+            FILE_ATTRIBUTE_ARCHIVE = 0x20
+
+            if os.path.exists(self.pipe_name):
+                ctypes.windll.kernel32.SetFileAttributesW(self.pipe_name.decode("utf-8"), FILE_ATTRIBUTE_NORMAL)
+
             # Write key to file
             with open(self.pipe_name, 'wb') as f:
                 with ctrl_cancel_async_io(f.fileno()):
-                    f.write(str(port).encode())
-                    f.write(b'\n')
-                    f.write(self.key)
+                    f.write(header_bytes)
+
+            ctypes.windll.kernel32.SetFileAttributesW(self.pipe_name.decode("utf-8"), FILE_ATTRIBUTE_SYSTEM | FILE_ATTRIBUTE_ARCHIVE)
 
     def __del__(self):
         """Close the underlying socket or pipe."""
@@ -313,11 +338,17 @@ class Server:
                 sock, addr = self.sock.accept()
             sock = InterruptibleSocket(sock)
             sock.settimeout(self.timeout)
-            if self.key != util.recv(sock, 16):
-                sock.close()
-                # Simulate timeout on failed connection to allow the caller to retry
-                raise TimeoutError('Illegitimate client tried to connect to pipe {0}'
-                                   .format(self.pipe_name))
+
+            client_handshake = util.recv(sock, 16)
+            sock.sendall(client_handshake)
+
+            client_handshake_2 = util.recv(sock, 12)
+            pid, uid, gid = struct.unpack("<III", client_handshake_2)
+
+            server_pid = os.getpid()
+            server_handshake_2 = struct.pack("<III", server_pid, uid, gid)
+            sock.sendall(server_handshake_2)
+
             sock.settimeout(None)
             return (sock, addr)
         else:
