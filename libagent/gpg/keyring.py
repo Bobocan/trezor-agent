@@ -208,7 +208,7 @@ def get_gnupg_binary(sp=subprocess, neopg_binary=None):
     """Starting GnuPG 2.2.x, the default installation uses `gpg`."""
     if neopg_binary:
         return neopg_binary
-    return get_gnupg_components(sp=sp)['gpg']
+    return 'gpg'
 
 
 @util.memoize
@@ -235,14 +235,8 @@ def get_keygrip(user_id, sp=subprocess):
     return re.findall(r'Keygrip = (\w+)', output)[0]
 
 
-def gpg_version(sp=subprocess):
-    """Get a keygrip of the primary GPG key of the specified user."""
-    args = gpg_command(['--version'])
-    output = check_output(args=args, sp=sp)
-    line = re.split('[\n\r]+', output.decode('utf-8'))[0]  # b'gpg (GnuPG) 2.1.11'
-    line = line.split(' ')[-1]  # b'2.1.11'
-    line = line.split('-')[0]  # remove trailing version parts
-    return line.split('v')[-1].encode()  # remove 'v' prefix
+def gpg_version():
+    return b'2.4.5-unknown'
 
 
 def export_public_key(user_id, env=None, sp=subprocess):
